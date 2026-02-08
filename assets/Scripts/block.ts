@@ -7,14 +7,16 @@ export class Block extends Component {
     @property({ type: CCInteger })
     cornerRadius = 8;
     
+    blockSize: number | null = null;
+    
     start() {
         const theme = ThemeManager.instance!;
-        const blockSize = theme.getBlockSize();
+        const size = this.blockSize ?? theme.getBlockSize();
         
         const uiTransform = this.getComponent(UITransform)!;
-        uiTransform.setContentSize(blockSize, blockSize);
+        uiTransform.setContentSize(size, size);
         
-        this.drawBlock(blockSize, theme.getRandomBlockColor());
+        this.drawBlock(size, theme.getRandomBlockColor());
     }
     
     drawBlock(size: number, color: Color) {
