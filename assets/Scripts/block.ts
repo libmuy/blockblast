@@ -8,7 +8,12 @@ export class Block extends Component {
     cornerRadius = 8;
     
     blockSize: number | null = null;
+    private _customColor: Color | null = null;
     
+    setColor(color: Color) {
+        this._customColor = color;
+    }
+
     start() {
         const theme = ThemeManager.instance!;
         const size = this.blockSize ?? theme.getBlockSize();
@@ -16,7 +21,8 @@ export class Block extends Component {
         const uiTransform = this.getComponent(UITransform)!;
         uiTransform.setContentSize(size, size);
         
-        this.drawBlock(size, theme.getRandomBlockColor());
+        const color = this._customColor ?? theme.getRandomBlockColor();
+        this.drawBlock(size, color);
     }
     
     drawBlock(size: number, color: Color) {
@@ -41,4 +47,3 @@ export class Block extends Component {
     }
 
 }
-
