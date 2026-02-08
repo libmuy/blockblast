@@ -1,6 +1,6 @@
 import { _decorator, Component, Node, Prefab, instantiate, Layout, UITransform , tween, Vec3, Color, Vec2} from 'cc';
 import { ThemeManager } from './ThemeManager';
-import { Block } from './block';
+import { Block } from './Block';
 const { ccclass, property } = _decorator;
 
 @ccclass('GridManager')

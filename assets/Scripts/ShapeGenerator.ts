@@ -8,17 +8,29 @@ export class ShapeGenerator extends Component {
     @property({ type: Prefab })
     shapePrefab: Prefab = null!;
 
-    @property({ type: [Node] })
-    spawnPoints: Node[] = [];
+    @property({ type: Node })
+    spawnContainer: Node | null = null;
 
-    private activeShapes: (Node | null)[] = [null, null, null];
+    private spawnPoints: Node[] = [];
+
+    private activeShapes: (Node | null)[] = [];
 
     start() {
+        // populate spawnPoints from the assigned container (fallback to any pre-filled array)
+        if (this.spawnContainer) {
+            this.spawnPoints = this.spawnContainer.children;
+        } else if (this.spawnPoints.length === 0) {
+            console.warn('ShapeGenerator: no spawnContainer assigned and spawnPoints is empty');
+        }
+
+        // ensure activeShapes array matches spawnPoints length
+        this.activeShapes = new Array(this.spawnPoints.length).fill(null);
+
         this.generateAll();
     }
 
     generateAll() {
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < this.spawnPoints.length; i++) {
             this.generateShape(i);
         }
     }
@@ -32,7 +44,7 @@ export class ShapeGenerator extends Component {
         shapeNode.setPosition(0, 0, 0);
 
         const shape = shapeNode.getComponent(Shape)!;
-        const patterns = Object.values(SHAPE_PATTERNS);
+        const patterns = Object.keys(SHAPE_PATTERNS).map(key => SHAPE_PATTERNS[key as keyof typeof SHAPE_PATTERNS]);
         const randomPattern = patterns[Math.floor(Math.random() * patterns.length)];
         const randomColor = ThemeManager.instance!.getRandomBlockColor();
 

@@ -1,7 +1,7 @@
 import { _decorator, Component, Node, Vec2, Prefab, instantiate, Color, UITransform, Vec3, EventTouch, Camera, director } from 'cc';
 import { GridManager } from './GridManager';
 import { ThemeManager } from './ThemeManager';
-import { Block } from './block';
+import { Block } from './Block';
 import { GameManager } from './GameManager';
 const { ccclass, property } = _decorator;
 
