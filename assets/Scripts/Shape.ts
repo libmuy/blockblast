@@ -154,11 +154,16 @@ export class Shape extends Component {
         const gridWorldPos = gridManager.node.worldPosition;
         const relX = worldPos.x - (gridWorldPos.x - gridWidth / 2);
         const relY = worldPos.y - (gridWorldPos.y - gridHeight / 2);
-        let cellCenterX = Math.floor((relX - spacing - cellSize / 2) / step);
-        let cellCenterY = Math.floor((relY - spacing - cellSize / 2) / step);
+        const centerOffset = this.getShapeCenterInGridUnits();
+        const fingerCellX = (relX - spacing - cellSize / 2) / step;
+        const fingerCellY = (relY - spacing - cellSize / 2) / step;
+        // Even width/height: center is at .5; use ceil so we don't snap one cell left/down.
+        const evenW = centerOffset.x % 1 !== 0;
+        const evenH = centerOffset.y % 1 !== 0;
+        let cellCenterX = evenW ? Math.ceil(fingerCellX) : Math.round(fingerCellX);
+        let cellCenterY = evenH ? Math.ceil(fingerCellY) : Math.round(fingerCellY);
         cellCenterX = Math.max(0, Math.min(cols - 1, cellCenterX));
         cellCenterY = Math.max(0, Math.min(cols - 1, cellCenterY));
-        const centerOffset = this.getShapeCenterInGridUnits();
         const baseGridX = cellCenterX - Math.round(centerOffset.x);
         const baseGridY = cellCenterY - Math.round(centerOffset.y);
         const currentOffsets = this.getCurrentOffsets();
@@ -174,6 +179,9 @@ export class Shape extends Component {
         const clampGy = (gy: number) => Math.max(-minOy, Math.min(cols - 1 - maxOy, gy));
         const cx = clampGx(baseGridX);
         const cy = clampGy(baseGridY);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/c750bf47-ec44-4bde-94e8-4293a3362f5e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Shape.ts:getDropPosition',message:'drop position',data:{relX,relY,cx,cy},timestamp:Date.now(),hypothesisId:'H6'})}).catch(()=>{});
+        // #endregion
         return { cx, cy, currentOffsets };
     }
 
@@ -220,6 +228,7 @@ export class Shape extends Component {
             this.ghostNode.active = false;
             return;
         }
+        // Position ghost snapped to grid cells; same (cx,cy) as placement so shape lands on ghost.
         const cellSize = theme.getBlockSize();
         const spacing = theme.spacing;
         const step = cellSize + spacing;
@@ -228,8 +237,7 @@ export class Shape extends Component {
         const centerX = spacing + (cx + centerOffset.x) * step + cellSize / 2 - ut.width / 2;
         const centerY = spacing + (cy + centerOffset.y) * step + cellSize / 2 - ut.height / 2;
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/c750bf47-ec44-4bde-94e8-4293a3362f5e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Shape.ts:updateGhostFromDropPosition',message:'ghost position',data:{centerX,centerY,cx,cy,centerOffsetX:centerOffset.x,centerOffsetY:centerOffset.y,step,cellSize,spacing,utWidth:ut.width,utHeight:ut.height},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-        fetch('http://127.0.0.1:7242/ingest/c750bf47-ec44-4bde-94e8-4293a3362f5e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Shape.ts:updateGhostFromDropPosition',message:'grid transform',data:{utWidth:ut.width,utHeight:ut.height},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/c750bf47-ec44-4bde-94e8-4293a3362f5e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Shape.ts:updateGhostFromDropPosition',message:'ghost position',data:{centerX,centerY,cx,cy},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
         // #endregion
         this.ghostNode.setPosition(centerX, centerY, 0);
         this.ghostNode.active = true;
