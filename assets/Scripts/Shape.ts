@@ -155,9 +155,11 @@ export class Shape extends Component {
         const relX = worldPos.x - (gridWorldPos.x - gridWidth / 2);
         const relY = worldPos.y - (gridWorldPos.y - gridHeight / 2);
 
-        // Cell under the shape's center (shape node position = visual center)
-        const cellCenterX = Math.round((relX - spacing - cellSize / 2) / step);
-        const cellCenterY = Math.round((relY - spacing - cellSize / 2) / step);
+        // Cell under the shape's center: use floor so first row (bottom) stays row 0 (round would push upper half into row 1)
+        let cellCenterX = Math.floor((relX - spacing - cellSize / 2) / step);
+        let cellCenterY = Math.floor((relY - spacing - cellSize / 2) / step);
+        cellCenterX = Math.max(0, Math.min(cols - 1, cellCenterX));
+        cellCenterY = Math.max(0, Math.min(cols - 1, cellCenterY));
 
         // Placement origin: where offset (0,0) goes. Center of shape should land at (cellCenterX, cellCenterY).
         const centerOffset = this.getShapeCenterInGridUnits();
@@ -165,7 +167,17 @@ export class Shape extends Component {
         const baseGridY = cellCenterY - Math.round(centerOffset.y);
 
         const currentOffsets = this.getCurrentOffsets();
-        // Try computed position first, then nearby cells so drops near the grid still place
+        // Clamp placement so the whole shape fits in [0, cols-1]; allows first row (y=0) placement
+        let minOx = currentOffsets[0].x, maxOx = currentOffsets[0].x;
+        let minOy = currentOffsets[0].y, maxOy = currentOffsets[0].y;
+        for (const o of currentOffsets) {
+            if (o.x < minOx) minOx = o.x;
+            if (o.x > maxOx) maxOx = o.x;
+            if (o.y < minOy) minOy = o.y;
+            if (o.y > maxOy) maxOy = o.y;
+        }
+        const clampGx = (gx: number) => Math.max(-minOx, Math.min(cols - 1 - maxOx, gx));
+        const clampGy = (gy: number) => Math.max(-minOy, Math.min(cols - 1 - maxOy, gy));
         const candidates: [number, number][] = [
             [baseGridX, baseGridY],
             [baseGridX + 1, baseGridY],
@@ -175,8 +187,10 @@ export class Shape extends Component {
         ];
         let placed = false;
         for (const [gx, gy] of candidates) {
-            if (gridManager.canPlaceShape(currentOffsets, gx, gy)) {
-                gridManager.placeShape(currentOffsets, gx, gy, this.color);
+            const cx = clampGx(gx);
+            const cy = clampGy(gy);
+            if (gridManager.canPlaceShape(currentOffsets, cx, cy)) {
+                gridManager.placeShape(currentOffsets, cx, cy, this.color);
                 placed = true;
                 break;
             }

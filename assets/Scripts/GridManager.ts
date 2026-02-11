@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Prefab, instantiate, Layout, UITransform , tween, Vec3, Color, Vec2} from 'cc';
+import { _decorator, Component, Node, Prefab, instantiate, UITransform, tween, Vec3, Color, Vec2, Layout } from 'cc';
 import { ThemeManager } from './ThemeManager';
 import { Block } from './Block';
 const { ccclass, property } = _decorator;
@@ -20,10 +20,18 @@ export class GridManager extends Component {
     start() {
         this.theme = ThemeManager.instance!;
         this.initGrid();
+        const layout = this.getComponent(Layout);
+        if (layout) layout.destroy();
         const step = this.theme.getBlockSize() + this.theme.spacing;
         const gridSize = this.theme.columns * step + this.theme.spacing;
         const ut = this.getComponent(UITransform)!;
         ut.setContentSize(gridSize, gridSize);
+        // Reparent under Center so blocks and grid lines use the same coordinate system (no offset)
+        const centerNode = this.node.parent?.getChildByName('Center');
+        if (centerNode) {
+            this.node.setParent(centerNode);
+            this.node.setPosition(0, 0, 0);
+        }
     }
     
     initGrid() {

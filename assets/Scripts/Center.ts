@@ -12,8 +12,11 @@ export class Center extends Component {
         const graphics = this.node.getComponent(Graphics)!;
         const uiTransform = this.node.getComponent(UITransform)!;
 
-        uiTransform.setContentSize(theme.centerAreaWidth, theme.centerAreaWidth);
-        
+        // Use same size formula as GridManager so grid lines match block positions exactly
+        const step = theme.getBlockSize() + theme.spacing;
+        const gridSize = theme.columns * step + theme.spacing;
+        uiTransform.setContentSize(gridSize, gridSize);
+
         const rect = uiTransform.contentSize;
         this.drawBackground(graphics, rect);
         this.drawGrid(graphics, rect);
