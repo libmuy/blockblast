@@ -44,6 +44,9 @@ export class Shape extends Component {
     private ghostNode: Node | null = null;
     private shadowNodes: Node[] = [];
     private static readonly SPAWN_AREA_THRESHOLD = 50;
+    /** Vertical offset so the shape stays above the finger during drag (in parent space). */
+    private static readonly DRAG_OFFSET_ABOVE = 200;
+    private _dragFingerBase: Vec3 = new Vec3();
 
     onEnable() {
         // Touch is registered on touchReceiver in addTouchReceiver() so the shape receives drags (blocks would consume touch otherwise).
@@ -145,17 +148,36 @@ export class Shape extends Component {
         }
         this.lastTapTime = now;
         this.node.setScale(this.dragScale);
-        const pos = this.node.position;
-        this.node.setPosition(pos.x, pos.y + 100, pos.z);
+        const pos = this.node.position.clone();
+        this._dragFingerBase.set(pos);
+        this.node.setPosition(pos.x, pos.y + Shape.DRAG_OFFSET_ABOVE, pos.z);
         this.updateShadowVisibility();
         this.createGhostIfNeeded();
         this.updateGhostFromDropPosition();
     }
 
+    /** Called when spawn area is touched but not the shape; same behavior as touching the shape. */
+    public startDrag(event: EventTouch) {
+        this.onTouchStart(event);
+    }
+
+    public updateDrag(event: EventTouch) {
+        this.onTouchMove(event);
+    }
+
+    public endDrag(event: EventTouch) {
+        this.onTouchEnd(event);
+    }
+
     private onTouchMove(event: EventTouch) {
         const delta = event.getUIDelta();
-        const pos = this.node.position;
-        this.node.setPosition(pos.x + delta.x, pos.y + delta.y, pos.z);
+        this._dragFingerBase.x += delta.x;
+        this._dragFingerBase.y += delta.y;
+        this.node.setPosition(
+            this._dragFingerBase.x,
+            this._dragFingerBase.y + Shape.DRAG_OFFSET_ABOVE,
+            this._dragFingerBase.z
+        );
         this.updateShadowVisibility();
         this.updateGhostFromDropPosition();
     }

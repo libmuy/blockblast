@@ -1,8 +1,15 @@
-import { _decorator, Component, Node, Label, UITransform, sys, AudioSource, AudioClip, Button } from 'cc';
+import { _decorator, Component, Node, Label, UITransform, sys, AudioSource, AudioClip, tween, Vec3, Color, UIOpacity } from 'cc';
 import { GridManager } from './GridManager';
 import { ShapeGenerator } from './ShapeGenerator';
 import { GameOverUI } from './GameOverUI';
 const { ccclass, property } = _decorator;
+
+function getClearTier(linesCleared: number): 1 | 2 | 3 | 4 {
+    if (linesCleared >= 4) return 4;
+    if (linesCleared === 3) return 3;
+    if (linesCleared === 2) return 2;
+    return 1;
+}
 
 const HIGH_SCORE_KEY = 'blockblast_highscore';
 
@@ -32,18 +39,20 @@ export class GameManager extends Component {
     gameOverClip: AudioClip | null = null;
 
     private score: number = 0;
+    private displayedScore: number = 0;
     private highScore: number = 0;
     private gameOverUI: GameOverUI | null = null;
     private _isGameOver = false;
-    private pausePanel: Node | null = null;
-    private _isPaused = false;
+    private comboCount: number = 0;
+    private comboBadgeNode: Node | null = null;
+    private comboLabel: Label | null = null;
 
     get isGameOver(): boolean {
         return this._isGameOver;
     }
 
     get isPaused(): boolean {
-        return this._isPaused;
+        return false;
     }
 
     onLoad() {
@@ -57,69 +66,57 @@ export class GameManager extends Component {
             this.audioSource = this.node.getComponent(AudioSource) || this.node.addComponent(AudioSource);
         }
         this.createGameOverPanel();
-        this.createPausePanel();
-        this.createPauseButton();
         this.createHighScoreLabelIfNeeded();
+        this.createScoreLabelIfNeeded();
+        this.createComboBadge();
         this.updateHighScoreLabel();
+        this.updateScoreLabel();
     }
 
-    private createPausePanel() {
-        const panel = new Node('PausePanel');
-        this.node.addChild(panel);
-        panel.setPosition(0, 0, 0);
-        const ut = panel.addComponent(UITransform);
-        ut.setContentSize(720, 1280);
-        const titleNode = new Node('PauseTitle');
-        panel.addChild(titleNode);
-        titleNode.setPosition(0, 80, 0);
-        const titleUt = titleNode.addComponent(UITransform);
-        titleUt.setContentSize(300, 60);
-        const titleLabel = titleNode.addComponent(Label);
-        titleLabel.string = 'Paused';
-        titleLabel.fontSize = 42;
-        const resumeNode = new Node('ResumeButton');
-        panel.addChild(resumeNode);
-        resumeNode.setPosition(0, 0, 0);
-        const resumeUt = resumeNode.addComponent(UITransform);
-        resumeUt.setContentSize(200, 56);
-        const resumeBtn = resumeNode.addComponent(Button);
-        const resumeLabel = resumeNode.addComponent(Label);
-        resumeLabel.string = 'Resume';
-        resumeLabel.fontSize = 28;
-        resumeBtn.node.on(Button.EventType.CLICK, () => this.setPaused(false), this);
-        const restartNode = new Node('RestartButton');
-        panel.addChild(restartNode);
-        restartNode.setPosition(0, -80, 0);
-        const restartUt = restartNode.addComponent(UITransform);
-        restartUt.setContentSize(200, 56);
-        const restartBtn = restartNode.addComponent(Button);
-        const restartLabel = restartNode.addComponent(Label);
-        restartLabel.string = 'Restart';
-        restartLabel.fontSize = 28;
-        restartBtn.node.on(Button.EventType.CLICK, () => {
-            this.setPaused(false);
-            this.restart();
-        }, this);
-        panel.active = false;
-        this.pausePanel = panel;
+    update(dt: number) {
+        if (this.displayedScore !== this.score && this.scoreLabel) {
+            const diff = this.score - this.displayedScore;
+            const step = Math.max(1, Math.ceil(Math.abs(diff) * 0.15));
+            this.displayedScore += diff > 0 ? step : -step;
+            if (Math.abs(this.score - this.displayedScore) < step) this.displayedScore = this.score;
+            this.scoreLabel.string = `当前分数: ${this.displayedScore}`;
+        }
     }
 
-    private createPauseButton() {
-        const btnNode = new Node('PauseButton');
-        this.node.addChild(btnNode);
-        btnNode.setPosition(-280, 520, 0);
-        const ut = btnNode.addComponent(UITransform);
-        ut.setContentSize(80, 44);
-        const btn = btnNode.addComponent(Button);
-        const lbl = btnNode.addComponent(Label);
-        lbl.string = 'Pause';
-        lbl.fontSize = 22;
-        btn.node.on(Button.EventType.CLICK, () => this.setPaused(true), this);
+    private createComboBadge() {
+        const badge = new Node('ComboBadge');
+        this.node.addChild(badge);
+        badge.setPosition(260, 460, 0);
+        const ut = badge.addComponent(UITransform);
+        ut.setContentSize(140, 44);
+        const label = badge.addComponent(Label);
+        label.string = 'Combo x2';
+        label.fontSize = 26;
+        label.color = new Color(255, 220, 100);
+        label.horizontalAlign = Label.HorizontalAlign.CENTER;
+        label.verticalAlign = Label.VerticalAlign.CENTER;
+        badge.addComponent(UIOpacity);
+        badge.active = false;
+        this.comboBadgeNode = badge;
+        this.comboLabel = label;
     }
 
-    setPaused(paused: boolean) {
-        this._isPaused = paused;
-        if (this.pausePanel) this.pausePanel.active = paused;
+    private updateComboUI() {
+        if (!this.comboBadgeNode || !this.comboLabel) return;
+        if (this.comboCount >= 2) {
+            this.comboBadgeNode.active = true;
+            this.comboLabel.string = `Combo x${this.comboCount}`;
+            this.comboLabel.color = new Color(
+                Math.min(255, 200 + this.comboCount * 8),
+                Math.min(255, 180 + this.comboCount * 4),
+                80
+            );
+            const n = this.comboBadgeNode;
+            n.setScale(1.2, 1.2, 1);
+            tween(n).to(0.15, { scale: new Vec3(1, 1, 1) }, { easing: 'backOut' }).start();
+        } else {
+            this.comboBadgeNode.active = false;
+        }
     }
 
     private playSound(clip: AudioClip | null) {
@@ -142,17 +139,34 @@ export class GameManager extends Component {
         if (this.highScoreLabel) return;
         const n = new Node('HighScoreLabel');
         this.node.addChild(n);
-        n.setPosition(0, 520, 0);
+        n.setPosition(-280, 520, 0);
         const ut = n.addComponent(UITransform);
-        ut.setContentSize(200, 50);
+        ut.setContentSize(220, 50);
         this.highScoreLabel = n.addComponent(Label);
-        this.highScoreLabel.fontSize = 20;
-        this.highScoreLabel.string = 'High: 0';
+        this.highScoreLabel.fontSize = 22;
+        this.highScoreLabel.string = '最高纪录: 0';
+    }
+
+    private createScoreLabelIfNeeded() {
+        if (this.scoreLabel && this.scoreLabel.node && this.scoreLabel.node.isValid) return;
+        const n = new Node('ScoreLabel');
+        this.node.addChild(n);
+        n.setPosition(0, 480, 0);
+        const ut = n.addComponent(UITransform);
+        ut.setContentSize(400, 70);
+        ut.setAnchorPoint(0.5, 0.5);
+        this.scoreLabel = n.addComponent(Label);
+        this.scoreLabel.fontSize = 42;
+        this.scoreLabel.isBold = true;
+        this.scoreLabel.fontFamily = 'Arial Black';
+        this.scoreLabel.horizontalAlign = Label.HorizontalAlign.CENTER;
+        this.scoreLabel.verticalAlign = Label.VerticalAlign.CENTER;
+        this.scoreLabel.string = '当前分数: 0';
     }
 
     private updateHighScoreLabel() {
         if (this.highScoreLabel) {
-            this.highScoreLabel.string = `High: ${this.highScore}`;
+            this.highScoreLabel.string = `最高纪录: ${this.highScore}`;
         }
     }
 
@@ -166,10 +180,19 @@ export class GameManager extends Component {
 
     addScore(points: number) {
         this.score += points;
-        if (this.scoreLabel) {
-            this.scoreLabel.string = `Score: ${this.score}`;
-        }
         this.tryUpdateHighScore();
+        if (this.scoreLabel) {
+            const labelNode = this.scoreLabel.node;
+            labelNode.setScale(1.1, 1.1, 1);
+            tween(labelNode).to(0.12, { scale: new Vec3(1, 1, 1) }, { easing: 'backOut' }).start();
+        }
+    }
+
+    private updateScoreLabel() {
+        if (this.scoreLabel) {
+            this.displayedScore = this.score;
+            this.scoreLabel.string = `当前分数: ${this.score}`;
+        }
     }
 
     onPlaceSound() {
@@ -189,10 +212,16 @@ export class GameManager extends Component {
         const linesCleared = gridManager.checkAndClearLines();
 
         if (linesCleared > 0) {
+            this.comboCount++;
+            this.updateComboUI();
             this.onLineClearSound();
             const points = linesCleared * 100 * linesCleared;
             this.addScore(points);
+            const tier = getClearTier(linesCleared);
+            gridManager.playClearEffect(points, tier, this.comboCount);
         } else {
+            this.comboCount = 0;
+            this.updateComboUI();
             this.onPlaceSound();
         }
 
@@ -244,7 +273,10 @@ export class GameManager extends Component {
         const gridManager = GridManager.instance!;
         gridManager.clearAll();
         this.score = 0;
-        if (this.scoreLabel) this.scoreLabel.string = 'Score: 0';
+        this.displayedScore = 0;
+        this.comboCount = 0;
+        this.updateComboUI();
+        this.updateScoreLabel();
         this.shapeGenerator.clearAndRefill();
     }
 }

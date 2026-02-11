@@ -1,7 +1,15 @@
-import { _decorator, Component, Node, Prefab, instantiate, UITransform, tween, Vec3, Color, Vec2, Layout } from 'cc';
+import { _decorator, Component, Node, Prefab, instantiate, UITransform, tween, Vec3, Color, Vec2, Layout, Label, UIOpacity } from 'cc';
 import { ThemeManager } from './ThemeManager';
 import { Block } from './Block';
 const { ccclass, property } = _decorator;
+
+/** Clear effect tier by lines cleared: 1, 2, 3, 4+ */
+function getClearTier(linesCleared: number): 1 | 2 | 3 | 4 {
+    if (linesCleared >= 4) return 4;
+    if (linesCleared === 3) return 3;
+    if (linesCleared === 2) return 2;
+    return 1;
+}
 
 @ccclass('GridManager')
 export class GridManager extends Component {
@@ -185,24 +193,101 @@ export class GridManager extends Component {
             }
         }
 
-        // Brief delay then clear with scale-down; optional shake on grid
+        const points = totalCleared * 100 * totalCleared;
+        const tier = getClearTier(totalCleared);
         const gridNode = this.node;
         const origPos = gridNode.position.clone();
-        const delay = 0.08;
+        const baseDelay = 0.06;
+
+        // Per-block: random delay, flash, squash & stretch, random rotation, then shrink
+        const doSquashStretch = tier >= 2;
+        const rotateBase = tier === 1 ? 0 : tier === 2 ? 90 : tier === 3 ? 180 : 360;
+
         blocksToRemove.forEach(block => {
-            tween(block.node)
-                .delay(delay)
-                .to(0.25, { scale: new Vec3(0, 0, 0) })
-                .call(() => block.node.destroy())
-                .start();
+            const node = block.node;
+            const extraDelay = Math.random() * 0.18;
+            const rotateDeg = rotateBase + (rotateBase > 0 ? (Math.random() - 0.5) * 120 : 0);
+            const seq = tween(node).delay(baseDelay + extraDelay);
+            if (doSquashStretch) {
+                seq.to(0.06, { scale: new Vec3(1.35, 0.7, 1) }, { easing: 'sineOut' });
+                seq.to(0.06, { scale: new Vec3(0.7, 1.3, 1) }, { easing: 'sineInOut' });
+            }
+            seq.to(0.22, {
+                scale: new Vec3(0, 0, 0),
+                eulerAngles: new Vec3(0, 0, rotateDeg)
+            }, { easing: 'sineIn' });
+            seq.call(() => node.destroy());
+            seq.start();
         });
+
+        // Grid shake intensity by tier
+        const shakeA = tier === 1 ? 4 : tier === 2 ? 6 : tier === 3 ? 10 : 14;
+        const shakeB = tier === 1 ? 3 : tier === 2 ? 5 : tier === 3 ? 8 : 12;
+        const shakeDur = tier === 1 ? 0.04 : 0.05;
         tween(gridNode)
-            .delay(delay)
-            .to(0.04, { position: new Vec3(origPos.x + 4, origPos.y, origPos.z) })
-            .to(0.04, { position: new Vec3(origPos.x - 3, origPos.y, origPos.z) })
-            .to(0.04, { position: new Vec3(origPos.x, origPos.y, origPos.z) })
+            .delay(baseDelay)
+            .to(shakeDur, { position: new Vec3(origPos.x + shakeA, origPos.y, origPos.z) })
+            .to(shakeDur, { position: new Vec3(origPos.x - shakeB, origPos.y, origPos.z) })
+            .to(shakeDur, { position: new Vec3(origPos.x + shakeB * 0.6, origPos.y, origPos.z) })
+            .to(shakeDur, { position: new Vec3(origPos.x, origPos.y, origPos.z) })
             .start();
 
         return totalCleared;
+    }
+
+    /** Called by GameManager after a clear to show floating text. Combo is 1-based (1 = first clear). */
+    playClearEffect(points: number, tier: 1 | 2 | 3 | 4, combo: number = 1) {
+        const texts: Record<number, string> = {
+            1: 'Nice!',
+            2: 'Double!',
+            3: 'Triple!',
+            4: 'Amazing!'
+        };
+        const text = tier >= 4 ? texts[4]! : texts[tier]!;
+        const fontSize = tier === 1 ? 52 : tier === 2 ? 62 : tier === 3 ? 76 : 96;
+        const colors: Record<number, Color> = {
+            1: new Color(100, 220, 120),
+            2: new Color(100, 180, 255),
+            3: new Color(200, 120, 255),
+            4: new Color(255, 200, 60)
+        };
+        const color = colors[tier]!;
+        const showCombo = combo >= 2;
+
+        const effectNode = new Node('ClearEffect');
+        this.node.addChild(effectNode);
+        effectNode.setPosition(0, 0, 0);
+        effectNode.setScale(0.3);
+
+        const labelNode = new Node('ScoreLabel');
+        effectNode.addChild(labelNode);
+        const ut = labelNode.addComponent(UITransform);
+        ut.setContentSize(420, showCombo ? 220 : 160);
+        const label = labelNode.addComponent(Label);
+        label.string = showCombo ? `Combo x${combo}\n${text}\n+${points}` : `${text}\n+${points}`;
+        label.fontSize = fontSize;
+        label.isBold = true;
+        label.fontFamily = 'Arial Black';
+        label.color = color;
+        label.horizontalAlign = Label.HorizontalAlign.CENTER;
+        label.verticalAlign = Label.VerticalAlign.CENTER;
+        label.lineHeight = fontSize + 12;
+
+        const opacity = effectNode.addComponent(UIOpacity);
+        opacity.opacity = 255;
+
+        tween(effectNode)
+            .to(0.12, { scale: new Vec3(1.15, 1.15, 1) }, { easing: 'backOut' })
+            .to(0.08, { scale: new Vec3(1, 1, 1) })
+            .start();
+        tween(labelNode)
+            .delay(0.2)
+            .to(0.35, { position: new Vec3(0, 45, 0) })
+            .start();
+        tween(opacity)
+            .delay(0.25)
+            .to(0.3, { opacity: 0 })
+            .call(() => effectNode.destroy())
+            .start();
     }
 }

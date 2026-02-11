@@ -13,6 +13,8 @@ export class Block extends Component {
 
     blockSize: number | null = null;
     private _customColor: Color | null = null;
+    private _lastSize: number = 0;
+    private _lastColor: Color = new Color(255, 255, 255);
 
     setColor(color: Color) {
         this._customColor = color;
@@ -21,12 +23,24 @@ export class Block extends Component {
     start() {
         const theme = ThemeManager.instance!;
         const size = this.blockSize ?? theme.getBlockSize();
+        this._lastSize = size;
 
         const uiTransform = this.getComponent(UITransform)!;
         uiTransform.setContentSize(size, size);
 
         const color = this._customColor ?? theme.getRandomBlockColor();
+        this._lastColor = color.clone();
         this.drawBlock(size, color);
+    }
+
+    /** Redraw block with a bright flash (lerp toward white) for clear animation. */
+    flashToWhite(amount: number = 0.75) {
+        const c = this._lastColor;
+        const r = Math.min(255, Math.floor(c.r + (255 - c.r) * amount));
+        const g = Math.min(255, Math.floor(c.g + (255 - c.g) * amount));
+        const b = Math.min(255, Math.floor(c.b + (255 - c.b) * amount));
+        const flashColor = new Color(r, g, b, 255);
+        this.drawBlock(this._lastSize, flashColor);
     }
 
     drawBlock(size: number, color: Color) {
