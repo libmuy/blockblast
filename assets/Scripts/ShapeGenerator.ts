@@ -68,4 +68,15 @@ export class ShapeGenerator extends Component {
             .filter(s => s !== null)
             .map(s => s!.getComponent(Shape)!);
     }
+
+    clearAndRefill() {
+        for (let i = 0; i < this.activeShapes.length; i++) {
+            const node = this.activeShapes[i];
+            if (node && node.isValid) {
+                node.destroy();
+            }
+            this.activeShapes[i] = null;
+        }
+        this.generateAll();
+    }
 }

@@ -20,6 +20,10 @@ export class GridManager extends Component {
     start() {
         this.theme = ThemeManager.instance!;
         this.initGrid();
+        const step = this.theme.getBlockSize() + this.theme.spacing;
+        const gridSize = this.theme.columns * step + this.theme.spacing;
+        const ut = this.getComponent(UITransform)!;
+        ut.setContentSize(gridSize, gridSize);
     }
     
     initGrid() {
@@ -31,6 +35,21 @@ export class GridManager extends Component {
                 this.blocks[x][y] = null;
             }
         }
+    }
+
+    clearAll() {
+        if (!this.theme) return;
+        const cols = this.theme.columns;
+        for (let x = 0; x < cols; x++) {
+            for (let y = 0; y < cols; y++) {
+                const block = this.blocks[x][y];
+                if (block && block.node) {
+                    block.node.destroy();
+                }
+                this.blocks[x][y] = null;
+            }
+        }
+        this.initGrid();
     }
 
     spawnBlock(gridX: number, gridY: number, color: Color) {
@@ -154,12 +173,23 @@ export class GridManager extends Component {
             }
         }
 
+        // Brief delay then clear with scale-down; optional shake on grid
+        const gridNode = this.node;
+        const origPos = gridNode.position.clone();
+        const delay = 0.08;
         blocksToRemove.forEach(block => {
             tween(block.node)
-                .to(0.3, { scale: new Vec3(0, 0, 0) })
+                .delay(delay)
+                .to(0.25, { scale: new Vec3(0, 0, 0) })
                 .call(() => block.node.destroy())
                 .start();
         });
+        tween(gridNode)
+            .delay(delay)
+            .to(0.04, { position: new Vec3(origPos.x + 4, origPos.y, origPos.z) })
+            .to(0.04, { position: new Vec3(origPos.x - 3, origPos.y, origPos.z) })
+            .to(0.04, { position: new Vec3(origPos.x, origPos.y, origPos.z) })
+            .start();
 
         return totalCleared;
     }

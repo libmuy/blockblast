@@ -2,8 +2,8 @@ import { _decorator, Component, Graphics, UITransform, math, CCInteger } from 'c
 import { ThemeManager } from './ThemeManager';
 const { ccclass, property } = _decorator;
 
-@ccclass('BackgroundController')
-export class BackgroundController extends Component {
+@ccclass('Center')
+export class Center extends Component {
     @property({ type: CCInteger })
     cornerRadius: number = 50;  // ← Your shared const (edit in Inspector!)
 
