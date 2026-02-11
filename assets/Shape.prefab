@@ -75,6 +75,11 @@
       "__uuid__": "644cdc1f-1403-4d10-9e77-ca1d4edb17c7",
       "__expectedType__": "cc.Prefab"
     },
+    "shadowOffset": {
+      "__type__": "cc.Vec2",
+      "x": 4,
+      "y": -4
+    },
     "_id": ""
   },
   {

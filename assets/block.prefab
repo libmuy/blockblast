@@ -148,7 +148,9 @@
     "__prefab": {
       "__id__": 7
     },
-    "cornerRadius": 8,
+    "cornerRadius": 1,
+    "bevelWidth": 5,
+    "centralFaceRatio": 0.7,
     "_id": ""
   },
   {

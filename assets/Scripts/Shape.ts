@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Vec2, Prefab, instantiate, Color, UITransform, Vec3, EventTouch, tween } from 'cc';
+import { _decorator, Component, Node, Vec2, Prefab, instantiate, Color, UITransform, Vec3, EventTouch, tween, Graphics } from 'cc';
 import { GridManager } from './GridManager';
 import { ThemeManager } from './ThemeManager';
 import { Block } from './Block';
@@ -26,6 +26,8 @@ export const SHAPE_PATTERNS = {
 export class Shape extends Component {
     @property({ type: Prefab })
     blockPrefab: Prefab = null!;
+    @property({ type: Vec2, tooltip: '每个方块阴影的偏移 (x,y)，可调右下方向' })
+    shadowOffset = new Vec2(4, 4);
 
     /** Canonical pattern from init; do not mutate. */
     public offsets: Vec2[] = [];
@@ -40,6 +42,8 @@ export class Shape extends Component {
     private static readonly DOUBLE_TAP_MS = 350;
     private touchReceiver: Node | null = null;
     private ghostNode: Node | null = null;
+    private shadowNodes: Node[] = [];
+    private static readonly SPAWN_AREA_THRESHOLD = 50;
 
     onEnable() {
         // Touch is registered on touchReceiver in addTouchReceiver() so the shape receives drags (blocks would consume touch otherwise).
@@ -105,6 +109,8 @@ export class Shape extends Component {
             this.ghostNode.destroy();
             this.ghostNode = null;
         }
+        this.shadowNodes.forEach(s => { if (s && s.isValid) s.destroy(); });
+        this.shadowNodes = [];
     }
 
     init(pattern: Vec2[], color: Color) {
@@ -114,6 +120,19 @@ export class Shape extends Component {
         this.startPos = this.node.position.clone();
         this.createBlocks();
         this.addTouchReceiver();
+    }
+
+    /** True when shape is near its spawn position (show shadow only then). */
+    private isInSpawnArea(): boolean {
+        const p = this.node.position;
+        const dx = p.x - this.startPos.x;
+        const dy = p.y - this.startPos.y;
+        return Math.sqrt(dx * dx + dy * dy) < Shape.SPAWN_AREA_THRESHOLD;
+    }
+
+    private updateShadowVisibility() {
+        const show = this.isInSpawnArea();
+        this.shadowNodes.forEach(s => { if (s && s.isValid) s.active = show; });
     }
 
     private onTouchStart(event: EventTouch) {
@@ -128,6 +147,7 @@ export class Shape extends Component {
         this.node.setScale(this.dragScale);
         const pos = this.node.position;
         this.node.setPosition(pos.x, pos.y + 100, pos.z);
+        this.updateShadowVisibility();
         this.createGhostIfNeeded();
         this.updateGhostFromDropPosition();
     }
@@ -136,6 +156,7 @@ export class Shape extends Component {
         const delta = event.getUIDelta();
         const pos = this.node.position;
         this.node.setPosition(pos.x + delta.x, pos.y + delta.y, pos.z);
+        this.updateShadowVisibility();
         this.updateGhostFromDropPosition();
     }
 
@@ -273,6 +294,7 @@ export class Shape extends Component {
 
     private onTouchEnd(event: EventTouch) {
         this.hideGhost();
+        this.updateShadowVisibility();
         if (GameManager.instance?.isGameOver || GameManager.instance?.isPaused) {
             this.node.setScale(this.originalScale);
             this.node.setPosition(this.startPos);
@@ -283,6 +305,7 @@ export class Shape extends Component {
             const pos = this.startPos.clone();
             tween(this.node)
                 .to(0.15, { position: new Vec3(pos.x, pos.y, pos.z) })
+                .call(() => this.updateShadowVisibility())
                 .start();
             return;
         }
@@ -341,6 +364,7 @@ export class Shape extends Component {
                 .to(0.05, { position: new Vec3(pos.x - 6, pos.y, pos.z) })
                 .to(0.05, { position: new Vec3(pos.x + 4, pos.y, pos.z) })
                 .to(0.05, { position: new Vec3(pos.x, pos.y, pos.z) })
+                .call(() => this.updateShadowVisibility())
                 .start();
         }
     }
@@ -352,6 +376,7 @@ export class Shape extends Component {
         const step = cellSize + spacing;
         const current = this.getCurrentOffsets();
         const center = this.getShapeCenterInGridUnits();
+        const shadowSize = cellSize + 8;
 
         current.forEach(offset => {
             const blockNode = instantiate(this.blockPrefab);
@@ -364,7 +389,20 @@ export class Shape extends Component {
             const block = blockNode.getComponent(Block)!;
             block.setColor(this.color);
             this.blocks.push(blockNode);
+
+            const shadow = new Node('BlockShadow');
+            shadow.setPosition(this.shadowOffset.x, this.shadowOffset.y, 0);
+            const ut = shadow.addComponent(UITransform);
+            ut.setContentSize(shadowSize, shadowSize);
+            ut.setAnchorPoint(0.5, 0.5);
+            const g = shadow.addComponent(Graphics);
+            g.roundRect(-shadowSize / 2, -shadowSize / 2, shadowSize, shadowSize, 8);
+            g.fillColor = new Color(0, 0, 0, 55);
+            g.fill();
+            blockNode.insertChild(shadow, 0);
+            this.shadowNodes.push(shadow);
         });
+        this.updateShadowVisibility();
     }
 
     /** Add a full-bounds touch receiver so dragging works (blocks would otherwise consume the touch). */
