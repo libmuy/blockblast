@@ -139,6 +139,26 @@ export class Shape extends Component {
         this.updateGhostFromDropPosition();
     }
 
+    /** True when the shape center is inside the grid (drop area). */
+    private isOverGrid(): boolean {
+        const gridManager = GridManager.instance;
+        const theme = ThemeManager.instance;
+        if (!gridManager || !theme) return false;
+        const cellSize = theme.getBlockSize();
+        const spacing = theme.spacing;
+        const step = cellSize + spacing;
+        const cols = theme.columns;
+        const gridWidth = cols * step + spacing;
+        const gridHeight = cols * step + spacing;
+        const worldPos = this.node.worldPosition;
+        const gridWorldPos = gridManager.node.worldPosition;
+        const left = gridWorldPos.x - gridWidth / 2;
+        const right = gridWorldPos.x + gridWidth / 2;
+        const bottom = gridWorldPos.y - gridHeight / 2;
+        const top = gridWorldPos.y + gridHeight / 2;
+        return worldPos.x >= left && worldPos.x <= right && worldPos.y >= bottom && worldPos.y <= top;
+    }
+
     /** Returns the primary drop position (cx, cy) and currentOffsets; used for ghost and placement. */
     private getDropPosition(): { cx: number; cy: number; currentOffsets: Vec2[] } | null {
         const gridManager = GridManager.instance;
@@ -216,6 +236,10 @@ export class Shape extends Component {
 
     private updateGhostFromDropPosition() {
         if (!this.ghostNode) return;
+        if (!this.isOverGrid()) {
+            this.ghostNode.active = false;
+            return;
+        }
         const gridManager = GridManager.instance!;
         const theme = ThemeManager.instance!;
         const drop = this.getDropPosition();
@@ -252,6 +276,14 @@ export class Shape extends Component {
         if (GameManager.instance?.isGameOver || GameManager.instance?.isPaused) {
             this.node.setScale(this.originalScale);
             this.node.setPosition(this.startPos);
+            return;
+        }
+        if (!this.isOverGrid()) {
+            this.node.setScale(this.originalScale);
+            const pos = this.startPos.clone();
+            tween(this.node)
+                .to(0.15, { position: new Vec3(pos.x, pos.y, pos.z) })
+                .start();
             return;
         }
         const gridManager = GridManager.instance!;
