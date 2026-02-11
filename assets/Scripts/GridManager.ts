@@ -75,7 +75,11 @@ export class GridManager extends Component {
         const uiTransform = this.getComponent(UITransform)!;
         const worldX = x - uiTransform.width / 2;
         const worldY = y - uiTransform.height / 2;
-        
+        // #region agent log
+        if (gridX === 0 && gridY === 0) {
+            fetch('http://127.0.0.1:7242/ingest/c750bf47-ec44-4bde-94e8-4293a3362f5e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GridManager.ts:spawnBlock',message:'cell 0,0 block position',data:{worldX,worldY,x,y,gridX,gridY,utWidth:uiTransform.width,utHeight:uiTransform.height},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+        }
+        // #endregion
         blockNode.setPosition(worldX, worldY);
         
         const block = blockNode.getComponent(Block)!;

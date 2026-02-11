@@ -189,12 +189,17 @@ export class Shape extends Component {
         const ghostColor = new Color(this.color.r, this.color.g, this.color.b, 128);
         const ghost = new Node('ShapeGhost');
         gridManager.node.addChild(ghost);
-        current.forEach(offset => {
+        current.forEach((offset, i) => {
             const blockNode = instantiate(this.blockPrefab);
             ghost.addChild(blockNode);
             const x = (offset.x - center.x) * step;
             const y = (offset.y - center.y) * step;
             blockNode.setPosition(x, y, 0);
+            if (i === 0) {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/c750bf47-ec44-4bde-94e8-4293a3362f5e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Shape.ts:createGhostIfNeeded',message:'first ghost block pos',data:{x,y,offsetX:offset.x,offsetY:offset.y,centerX:center.x,centerY:center.y,step},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+                // #endregion
+            }
             const block = blockNode.getComponent(Block)!;
             block.setColor(ghostColor);
         });
@@ -222,6 +227,10 @@ export class Shape extends Component {
         const ut = gridManager.getComponent(UITransform)!;
         const centerX = spacing + (cx + centerOffset.x) * step + cellSize / 2 - ut.width / 2;
         const centerY = spacing + (cy + centerOffset.y) * step + cellSize / 2 - ut.height / 2;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/c750bf47-ec44-4bde-94e8-4293a3362f5e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Shape.ts:updateGhostFromDropPosition',message:'ghost position',data:{centerX,centerY,cx,cy,centerOffsetX:centerOffset.x,centerOffsetY:centerOffset.y,step,cellSize,spacing,utWidth:ut.width,utHeight:ut.height},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/c750bf47-ec44-4bde-94e8-4293a3362f5e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Shape.ts:updateGhostFromDropPosition',message:'grid transform',data:{utWidth:ut.width,utHeight:ut.height},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
         this.ghostNode.setPosition(centerX, centerY, 0);
         this.ghostNode.active = true;
     }
